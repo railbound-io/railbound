@@ -1,0 +1,39 @@
+{
+  "name": "@railbound-io/railbound",
+  "version": "0.1.1",
+  "publishConfig": {
+    "access": "public"
+  },
+  "description": "Railbound CLI",
+  "license": "MIT",
+  "author": "Railbound (https://railbound.io)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/railbound-io/railbound.git"
+  },
+  "bugs": {
+    "url": "https://github.com/railbound-io/railbound/issues"
+  },
+  "homepage": "https://railbound.io",
+  "engines": {
+    "node": ">=18"
+  },
+  "bin": {
+    "railbound": "dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "rm -rf ./dist && cd ./build && node ./index.js && cd .. && tsc --noEmit",
+    "test": "npm run build && node --test test/index.js"
+  },
+  "dependencies": {
+    "commander": "^12.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "esbuild": "^0.25.4",
+    "typescript": "^5.7.2"
+  }
+}
