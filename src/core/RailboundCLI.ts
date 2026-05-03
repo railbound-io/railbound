@@ -1,32 +1,68 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import CLIConstants from "../utils/CLIConstants";
 import CLIUtilities from "../utils/CLIUtilities";
-import type { DemoDeployResponse, DeployDemoFetch, DeployDemoResult, LogLine, RunDeployDemoInput } from "../utils/CLITypes";
+import type {
+    DemoDeployResponse,
+    DeployDemoFetch,
+    DeployDemoResult,
+    LogLine,
+    RailboundCLIDeps,
+    ReadPackageFile,
+    RunDeployDemoInput
+} from "../utils/CLITypes";
 
 export default class RailboundCLI {
-    private readonly version: string;
+    private readonly deps: RailboundCLIDeps;
     private readonly fetchImpl: DeployDemoFetch;
     private readonly log: LogLine;
     private readonly env: NodeJS.ProcessEnv;
 
-    constructor(
-        version: string,
-        fetchImpl: DeployDemoFetch = fetch,
-        log: LogLine = console.log,
-        env: NodeJS.ProcessEnv = process.env
-    ) {
-        this.version = version;
-        this.fetchImpl = fetchImpl;
-        this.log = log;
-        this.env = env;
+    private initDone = false;
+    private cliVersion = "";
+    private entrySha256 = "";
+    private packageJsonSha256 = "";
+
+    constructor(deps: RailboundCLIDeps = {}) {
+        this.deps = deps;
+        this.fetchImpl = deps.fetchImpl ?? fetch;
+        this.log = deps.log ?? console.log;
+        this.env = deps.env ?? process.env;
+    }
+
+    #ensureInitialized(): void {
+        if (this.initDone) {
+            return;
+        }
+        this.initDone = true;
+
+        const injected = this.deps.diagnostics;
+        if (injected) {
+            this.cliVersion = injected.version;
+            this.entrySha256 = injected.entrySha256;
+            this.packageJsonSha256 = injected.packageJsonSha256;
+            return;
+        }
+
+        const readUtf8: ReadPackageFile = this.deps.readPackageFile ?? ((path, enc) => readFileSync(path, enc));
+        const readBinary = this.deps.readBinaryFile ?? ((path: string) => readFileSync(path));
+
+        const entryPath = __filename;
+        const packageJsonPath = join(dirname(__filename), "..", "package.json");
+        this.cliVersion = CLIUtilities.readPackageVersion(readUtf8, packageJsonPath);
+        this.entrySha256 = CLIUtilities.sha256HexOfFile(readBinary, entryPath);
+        this.packageJsonSha256 = CLIUtilities.sha256HexOfFile(readBinary, packageJsonPath);
     }
 
     public async run(argv: string[] = process.argv): Promise<void> {
+        this.#ensureInitialized();
         const args = argv.slice(2);
         await this.routeCommand(args);
     }
 
     public printRailboundHelp(): void {
-        this.log(`${CLIConstants.Commands.NAME} v${this.version}`);
+        this.#ensureInitialized();
+        this.log(`${CLIConstants.Commands.NAME} v${this.cliVersion}`);
         this.log("");
         this.log(CLIConstants.HelpText.COMMANDS_HEADER);
         this.log(CLIConstants.HelpText.HELP_COMMAND_LINE);
@@ -38,6 +74,7 @@ export default class RailboundCLI {
     }
 
     public async runDeployDemo(input: Omit<RunDeployDemoInput, "fetchImpl"> = {}): Promise<DeployDemoResult> {
+        this.#ensureInitialized();
         const { log = this.log, env = this.env } = input;
         const url = this.buildDemoDeployUrl(env);
         const response = await this.postDeployDemo(url);
@@ -84,7 +121,10 @@ export default class RailboundCLI {
             method: CLIConstants.Http.POST,
             headers: {
                 [CLIConstants.Http.ACCEPT_HEADER]: CLIConstants.Http.APPLICATION_JSON,
-                [CLIConstants.Http.CONTENT_TYPE_HEADER]: CLIConstants.Http.APPLICATION_JSON
+                [CLIConstants.Http.CONTENT_TYPE_HEADER]: CLIConstants.Http.APPLICATION_JSON,
+                [CLIConstants.Http.CLI_VERSION_HEADER]: this.cliVersion,
+                [CLIConstants.Http.CLI_ENTRY_SHA256_HEADER]: this.entrySha256,
+                [CLIConstants.Http.CLI_PACKAGE_JSON_SHA256_HEADER]: this.packageJsonSha256
             },
             body: CLIConstants.Http.EMPTY_JSON_BODY
         });

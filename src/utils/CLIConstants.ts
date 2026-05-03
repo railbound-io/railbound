@@ -29,7 +29,12 @@ export default class CLIConstants {
         ACCEPT_HEADER: "accept",
         CONTENT_TYPE_HEADER: "content-type",
         APPLICATION_JSON: "application/json",
-        EMPTY_JSON_BODY: "{}"
+        EMPTY_JSON_BODY: "{}",
+        CLI_VERSION_HEADER: "x-railbound-cli-version",
+        CLI_ENTRY_SHA256_HEADER: "x-railbound-cli-entry-sha256",
+        CLI_PACKAGE_JSON_SHA256_HEADER: "x-railbound-cli-package-json-sha256",
+        /** Sentinel for hash headers when the file cannot be read (diagnostics only). */
+        DIAGNOSTICS_UNAVAILABLE: "unavailable"
     } as const;
 
     public static readonly HelpText = {

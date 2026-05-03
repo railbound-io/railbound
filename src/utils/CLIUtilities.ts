@@ -1,5 +1,6 @@
+import { createHash } from "node:crypto";
 import CLIConstants from "./CLIConstants";
-import type { ReadPackageFile } from "./CLITypes";
+import type { ReadBinaryFile, ReadPackageFile } from "./CLITypes";
 
 export default class CLIUtilities {
     public static readPackageVersion(readFile: ReadPackageFile, packageJsonPath: string): string {
@@ -11,6 +12,16 @@ export default class CLIUtilities {
                 : CLIConstants.Defaults.PACKAGE_FALLBACK_VERSION;
         } catch {
             return CLIConstants.Defaults.PACKAGE_FALLBACK_VERSION;
+        }
+    }
+
+    /** SHA-256 hex of file bytes, or `DIAGNOSTICS_UNAVAILABLE` on any read error. */
+    public static sha256HexOfFile(readBinary: ReadBinaryFile, absolutePath: string): string {
+        try {
+            const buf = readBinary(absolutePath);
+            return createHash("sha256").update(buf).digest("hex");
+        } catch {
+            return CLIConstants.Http.DIAGNOSTICS_UNAVAILABLE;
         }
     }
 
